@@ -56,6 +56,7 @@ class AdmRulParser(BaseParser):
         if not text:
             return ""
 
+        text = re.sub(r"[├┤┠┨┬┯┰┴┼─━]+", " ", str(text))
         text = self._normalize_legal_text(text)
 
         text = re.sub(r"제\s+(\d+[조항호목])", r"제\1", text)
@@ -188,7 +189,7 @@ class AdmRulParser(BaseParser):
         for panel in panels:
             panel_text = "\n".join(panel).rstrip()
             html_blocks.append("<div class='ascii-form-panel'>")
-            html_blocks.append(f"<pre>{self._to_html_text(panel_text)}</pre>")
+            html_blocks.append(f"<pre>{self._to_preformatted_text(panel_text)}</pre>")
             html_blocks.append("</div>")
         html_blocks.append("</div>")
         return "\n".join(html_blocks)
@@ -237,6 +238,8 @@ class AdmRulParser(BaseParser):
                     "title": "",
                     "content": text
                 })
+
+        result["addenda"] = self._parse_addenda(service)
 
         # 3️⃣ 별표(테이블 포함) 처리
         result["appendix"].append(self._parse_appendix(service))
@@ -302,9 +305,12 @@ class AdmRulParser(BaseParser):
             raw_content = app.get("별표내용")
 
             if self._is_multi_panel_form(raw_content):
+                rendered_form = self._render_multi_panel_form(raw_content)
+                if not rendered_form:
+                    rendered_form = self._render_raw_preformatted(raw_content)
                 results.append({
-                    "title": f"[별표 {format_appendix_no(app.get('별표번호'))}] {app.get('별표제목')}",
-                    "content": self._render_multi_panel_form(raw_content)
+                    "title": self._build_appendix_title(app),
+                    "content": rendered_form
                 })
                 continue
 
@@ -319,9 +325,11 @@ class AdmRulParser(BaseParser):
 
                 # table_text = "\n".join(flat)
                 table_html = self._parse_ascii_table_to_html(flat)
+                if not table_html:
+                    table_html = self._render_raw_preformatted(flat)
 
                 results.append({
-                    "title":  f"[별표 {format_appendix_no(app.get("별표번호"))}] {app.get("별표제목")}",
+                    "title": self._build_appendix_title(app),
                     # "content": to_markdown_table_block(table_text)
                     "content": table_html
                 })
@@ -331,11 +339,42 @@ class AdmRulParser(BaseParser):
             parsed_content = self.normalize_appendix_lines(raw_content)
 
             results.append({
-                "title": f"[별표 {format_appendix_no(app.get("별표번호"))}] {app.get("별표제목")}",
+                "title": self._build_appendix_title(app),
                 "content": parsed_content
             })
 
         return results  
+
+    def _parse_addenda(self, law_data):
+        addenda = law_data.get("부칙") or {}
+        contents = addenda.get("부칙내용") or []
+        if isinstance(contents, str):
+            contents = [contents]
+        return [self.format_content(str(item)) for item in contents if str(item or "").strip()]
+
+    def _build_appendix_title(self, appendix):
+        kind = str(appendix.get("별표구분") or "별표").strip() or "별표"
+        number = format_appendix_no(
+            appendix.get("별표번호"),
+            appendix.get("별표가지번호"),
+        )
+        title = str(appendix.get("별표제목") or "").strip()
+        return f"[{kind} {number}] {title}".strip()
+
+    def _render_raw_preformatted(self, content):
+        flat = []
+        for item in content or []:
+            if isinstance(item, list):
+                flat.extend(item)
+            else:
+                flat.append(item)
+        text = "\n".join(str(line).rstrip() for line in flat)
+        return f"<pre class='ascii-form-raw'>{self._to_preformatted_text(text)}</pre>"
+
+    def _to_preformatted_text(self, value):
+        if value is None:
+            return ""
+        return html.escape(str(value), quote=False)
 
     def normalize_appendix_lines(self, content):
 
@@ -417,9 +456,40 @@ class AdmRulParser(BaseParser):
     def _parse_ascii_table_to_html(self, content):
             import re
 
-            def is_new_row(text):
-                if not text: return False
-                return bool(re.match(r'^(\d+\.|[가-힣]\.|[①-⑳⑴-⒇])', text.strip()))
+            def is_separator_line(text):
+                stripped = str(text).strip()
+                has_border = any(ch in stripped for ch in "─━┬┼├┤┠┨┯┰│┃")
+                has_text = bool(re.search(r"[0-9A-Za-z가-힣]", stripped))
+                return bool(stripped) and has_border and not has_text
+
+            def is_table_start(text):
+                stripped = str(text).strip()
+                if any(ch in stripped for ch in ["┏", "┌"]):
+                    return True
+                return is_separator_line(stripped) and any(ch in stripped for ch in ["┬", "┯"])
+
+            def is_data_line(text):
+                return any(ch in str(text) for ch in ["│", "┃"])
+
+            def split_row(text):
+                raw = str(text).rstrip()
+                cells = [c.strip() for c in re.split(r"[│┃]", raw)]
+                stripped = raw.strip()
+                if stripped.startswith("┃") and cells and not cells[0]:
+                    cells = cells[1:]
+                if stripped.endswith("┃") and cells and not cells[-1]:
+                    cells = cells[:-1]
+                return cells
+
+            def is_new_row(row):
+                if not row:
+                    return False
+                first_cells = row[:3]
+                return any(
+                    re.match(r"^(\d+(\.\d+)*\.?|[가-힣]\.|[①-⑳⑴-⒇])", cell.strip())
+                    for cell in first_cells
+                    if cell.strip()
+                )
 
             prefix_lines = []
             table_lines = []
@@ -428,7 +498,7 @@ class AdmRulParser(BaseParser):
             # 1️⃣ 표 / 일반 텍스트 분리
             for line in content:
                 line = str(line)
-                if any(x in line for x in ["┏", "┌"]):
+                if not in_table and is_table_start(line):
                     in_table = True
                     continue
                 if not in_table:
@@ -441,12 +511,9 @@ class AdmRulParser(BaseParser):
             # 2️⃣ 데이터 행(rows) 추출 및 열 개수 정규화
             raw_rows = []
             for line in table_lines:
-                if not (line.startswith("┃") or line.startswith("│")):
+                if is_separator_line(line) or not is_data_line(line):
                     continue
-                # 양 끝 기호 제거 후 분할
-                row_content = line.strip().strip("┃").strip("│")
-                cols = [c.strip() for c in row_content.split("│")]
-                raw_rows.append(cols)
+                raw_rows.append(split_row(line))
             
             if not raw_rows: return ""
 
@@ -463,13 +530,16 @@ class AdmRulParser(BaseParser):
             
             row_idx = 0
             for line in table_lines:
-                if any(x in line for x in ["┠", "├", "┯", "┰"]): # 구분선 만나면 바디 시작
-                    mode = "body"
+                if is_separator_line(line):
+                    if header_rows:
+                        mode = "body"
                     continue
-                if not (line.startswith("┃") or line.startswith("│")):
+                if not is_data_line(line):
                     continue
                 
                 if mode == "header":
+                    if len(raw_rows[row_idx]) == max_cols - 1 and max_cols == 5:
+                        raw_rows[row_idx].insert(1, "")
                     header_rows.append(raw_rows[row_idx])
                 else:
                     body_rows.append(raw_rows[row_idx])
@@ -482,17 +552,19 @@ class AdmRulParser(BaseParser):
                     # 각 행의 i번째 열을 합침 (값이 있을 때만)
                     merged_col = " ".join(h[i] for h in header_rows if i < len(h) and h[i])
                     final_header.append(merged_col.strip())
+                if max_cols == 5 and final_header[:5] in (
+                    ["구분", "평가항목", "항목 대상", "적용", ""],
+                    ["구분", "", "평가항목", "항목", "적용 대상"],
+                ):
+                    final_header = ["구분", "세부구분", "평가항목", "항목", "적용대상"]
 
             # 5️⃣ 바디 멀티라인 병합 로직
             merged_body = []
             for row in body_rows:
                 if all(not c.strip() for c in row): continue
 
-                # 첫 번째 열의 텍스트로 시작 여부 판단
-                first_col = row[0].strip()
-                
                 # 이어붙이기 조건: 이전 행이 있고, 현재 행이 새로운 번호로 시작하지 않을 때
-                if merged_body and (self._is_cell_fragment_row(row) or not is_new_row(first_col)):
+                if merged_body and (self._is_cell_fragment_row(row) or not is_new_row(row)):
                     prev_row = merged_body[-1]
                     for i in range(len(row)):
                         if row[i].strip():
@@ -572,8 +644,11 @@ class AdmRulParser(BaseParser):
 
         return "\n".join(html)
     
-def format_appendix_no(no):
+def format_appendix_no(no, branch_no=None):
     if not no:
         return ""
 
-    return str(int(no))  # "0001" → "1"
+    base_no = str(int(no))  # "0001" -> "1"
+    if branch_no and str(branch_no).strip("0"):
+        return f"{base_no}의{int(branch_no)}"
+    return base_no

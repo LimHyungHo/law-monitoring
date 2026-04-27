@@ -112,7 +112,11 @@ class PdfService:
             if not title and not content:
                 continue
 
-            sections.append("<section class='appendix-block'>")
+            section_class = "appendix-block"
+            content_text = str(content or "")
+            if "ascii-form-raw" in content_text or "compact-table" in content_text:
+                section_class += " wide-pre-section"
+            sections.append(f"<section class='{section_class}'>")
             if title:
                 sections.append(f"<h2>{html.escape(title, quote=False)}</h2>")
             sections.extend(self._appendix_content_to_html(content))
@@ -323,6 +327,7 @@ class PdfService:
             string="\n".join(
                 [
                     "@page { size: A4; margin: 16mm 14mm 18mm; }",
+                    "@page appendix-wide { size: A4 landscape; margin: 10mm; }",
                     font_face,
                     (
                         "body { font-family: 'NanumGothic', sans-serif; font-size: 11pt; "
@@ -338,12 +343,17 @@ class PdfService:
                     ".law-table { border-collapse: collapse; width: 100%; table-layout: fixed; font-size: 12px; margin: 0.6em 0 1em; }",
                     ".law-table th, .law-table td { border: 1px solid #333; padding: 8px 10px; vertical-align: top; word-break: break-word; overflow-wrap: anywhere; white-space: pre-wrap; line-height: 1.5; }",
                     ".law-table th { background-color: #f2f2f2; font-weight: bold; text-align: center; }",
+                    ".compact-table { font-size: 8pt; table-layout: fixed; }",
+                    ".compact-table th, .compact-table td { padding: 4px 5px; line-height: 1.28; }",
                     "thead { display: table-header-group; }",
                     "tfoot { display: table-footer-group; }",
                     "tr, td, th { page-break-inside: avoid; }",
+                    ".wide-pre-section { page: appendix-wide; }",
                     ".ascii-form-panels { display: block; margin: 0.4em 0 1em; }",
                     ".ascii-form-panel { display: block; width: 100%; margin: 0 0 10px; break-inside: avoid-page; page-break-inside: avoid; }",
-                    ".ascii-form-panel pre, .ascii-form-raw { margin: 0; padding: 8px; border: 1px solid #777; font-family: monospace; font-size: 8.4pt; line-height: 1.2; white-space: pre; overflow: hidden; }",
+                    ".ascii-form-panel pre, .ascii-form-raw { margin: 0; padding: 6px; border: 1px solid #777; font-family: monospace; line-height: 1.15; white-space: pre; overflow: visible; }",
+                    ".ascii-form-panel pre { font-size: 6.2pt; }",
+                    ".ascii-form-raw { font-size: 4.2pt; }",
                 ]
             )
         )
