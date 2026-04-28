@@ -19,7 +19,8 @@ class Settings:
         os.path.expanduser("~/workspace/law-monitoring/law_monitor.db")
     )
     SECRET_KEY = os.getenv("SECRET_KEY", "law-monitoring-dev-secret")
-    WEB_HOST = os.getenv("WEB_HOST", "127.0.0.1")
+    # WEB_HOST = os.getenv("WEB_HOST", "127.0.0.1")
+    WEB_HOST = os.getenv("WEB_HOST", "0.0.0.0")
     WEB_PORT = int(os.getenv("WEB_PORT", 5000))
     WEB_DEBUG = os.getenv("WEB_DEBUG", "false").lower() == "true"
 
