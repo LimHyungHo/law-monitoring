@@ -358,7 +358,7 @@ class LawParser:
                 table_html = self._parse_ascii_table_to_html(flat)
 
                 results.append({
-                    "title":  f"[별표 {format_appendix_no(app.get("별표번호"))}] {app.get("별표제목")}",
+                    "title": f"[별표 {format_appendix_no(app.get('별표번호'))}] {app.get('별표제목')}",
                     # "content": to_markdown_table_block(table_text)
                     "content": table_html
                 })
@@ -368,7 +368,7 @@ class LawParser:
             parsed_content = self.normalize_appendix_lines(raw_content)
 
             results.append({
-                "title": f"[별표 {format_appendix_no(app.get("별표번호"))}] {app.get("별표제목")}",
+                "title": f"[별표 {format_appendix_no(app.get('별표번호'))}] {app.get('별표제목')}",
                 "content": parsed_content
             })
 
