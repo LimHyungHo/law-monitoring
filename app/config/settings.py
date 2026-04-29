@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parents[2]
 DEFAULT_ENV_PATH = BASE_DIR / ".env"
 LOCAL_ENV_PATH = BASE_DIR / ".env.local"
-DEFAULT_DATA_DIR = Path(os.getenv("RAW_MONITOR_DATA_DIR", "/tmp/law-monitoring-data")).expanduser()
+DEFAULT_DATA_DIR = Path(os.getenv("LAW_MONITOR_DATA_DIR", "/tmp/law-monitoring-data")).expanduser()
 
 load_dotenv(DEFAULT_ENV_PATH)
 load_dotenv(LOCAL_ENV_PATH, override=True)
