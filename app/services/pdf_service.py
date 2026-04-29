@@ -2,14 +2,16 @@ import os
 import re
 import html
 from pathlib import Path
+from app.config.settings import settings
 
 class PdfService:
     def __init__(self):
         self.font_name = "NanumGothic"
         self.font_path = Path(__file__).resolve().parents[2] / "fonts" / "NanumGothic.ttf"
+        self.output_dir = settings.PDF_OUTPUT_DIR
 
     def generate_pdf(self, law_name, content):
-        save_dir = os.path.expanduser("~/law-monitor-data/")
+        save_dir = self.output_dir
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 
@@ -33,7 +35,7 @@ class PdfService:
         return file_path
 
     def generate_pdf_from_parsed_data(self, law_name, parsed_data, version_label=None):
-        save_dir = os.path.expanduser("~/law-monitor-data/")
+        save_dir = self.output_dir
         if not os.path.exists(save_dir):
             os.makedirs(save_dir)
 

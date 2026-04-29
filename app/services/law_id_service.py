@@ -3,24 +3,22 @@ import json
 import os
 from app.config.settings import settings
 
-# 캐시 파일 (권한 문제 해결)
-CACHE_FILE = os.path.expanduser("~/law-monitor-data/law_ids.json")
-
 
 class LawIdService:
 
     def __init__(self):
         self.session = requests.Session()
-        os.makedirs(os.path.dirname(CACHE_FILE), exist_ok=True)
+        self.cache_file = settings.LAW_ID_CACHE_PATH
+        os.makedirs(os.path.dirname(self.cache_file), exist_ok=True)
         self.cache = self._load_cache()
 
     # =========================
     # 캐시 로드
     # =========================
     def _load_cache(self):
-        if os.path.exists(CACHE_FILE):
+        if os.path.exists(self.cache_file):
             try:
-                with open(CACHE_FILE, "r", encoding="utf-8") as f:
+                with open(self.cache_file, "r", encoding="utf-8") as f:
                     return json.load(f)
             except:
                 return {}
@@ -30,7 +28,7 @@ class LawIdService:
     # 캐시 저장
     # =========================
     def _save_cache(self):
-        with open(CACHE_FILE, "w", encoding="utf-8") as f:
+        with open(self.cache_file, "w", encoding="utf-8") as f:
             json.dump(self.cache, f, ensure_ascii=False, indent=2)
 
     # =========================

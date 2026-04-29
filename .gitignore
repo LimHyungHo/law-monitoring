@@ -1,8 +1,15 @@
 .env
 .env.local
+.env.*
+!.env.example
 __pycache__/
 *.pyc
 venv/
+.venv/
 *.pdf
 *.json
 *.db
+*.log
+/tmp/
+/.pytest_cache/
+/.mypy_cache/

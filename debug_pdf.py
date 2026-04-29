@@ -5,7 +5,7 @@ from app.parsers.law_parser import LawParser
 from app.services.pdf_service import PdfService
 
 # 데이터 저장 경로 설정
-DATA_DIR = os.path.expanduser("~/law-monitor-data/")
+DATA_DIR = os.getenv("PDF_OUTPUT_DIR", "/tmp/law-monitoring-data/pdf")
 
 if __name__ == "__main__":
 	print("PDF 디버그 모드로 실행")
